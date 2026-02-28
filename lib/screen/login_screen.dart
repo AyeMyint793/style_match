@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
+import 'profile_setup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,29 +11,29 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-
   final _formKey = GlobalKey<FormState>();
 
   // ✅ Frontend-only login
   Future<void> loginUser(String email, String password) async {
-    if (email.isNotEmpty && password.isNotEmpty) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const HomeScreen(),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter email and password")),
-      );
-    }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ProfileSetupScreen(),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE5E5E5), // ✅ Grey background
+      backgroundColor: const Color(0xFFE5E5E5),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -79,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 25),
 
-                  // ✅ Email Field with validation
+                  // ✅ Email Field
                   TextFormField(
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -108,13 +108,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 15),
 
-                  // Password Field
+                  // ✅ Password Field (6 characters minimum)
                   TextFormField(
                     controller: passwordController,
                     obscureText: true,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return "Enter your password";
+                      }
+                      if (value.length < 6) {
+                        return "Password must be at least 6 characters";
                       }
                       return null;
                     },
@@ -132,7 +135,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 25),
 
-                  // Login Button
+                  // ✅ Login Button
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -140,8 +143,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: () {
                         if (_formKey.currentState!.validate()) {
                           loginUser(
-                            emailController.text,
-                            passwordController.text,
+                            emailController.text.trim(),
+                            passwordController.text.trim(),
                           );
                         }
                       },
@@ -153,8 +156,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: const Text(
                         "Login",
-                        style:
-                        TextStyle(fontSize: 18, color: Colors.white),
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
