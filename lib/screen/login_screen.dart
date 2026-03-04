@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'profile_setup_screen.dart';
+import 'register_screen.dart'; // ✅ add this
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,7 +14,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  // ✅ Frontend-only login
+  // Frontend-only login
   Future<void> loginUser(String email, String password) async {
     Navigator.pushReplacement(
       context,
@@ -55,18 +56,13 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.style,
-                    size: 60,
-                    color: Colors.black87,
-                  ),
+                  const Icon(Icons.style, size: 60, color: Colors.black87),
                   const SizedBox(height: 10),
                   const Text(
                     "Style Match",
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 5),
@@ -79,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 25),
 
-                  // ✅ Email Field
+                  // Email
                   TextFormField(
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -108,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 15),
 
-                  // ✅ Password Field (6 characters minimum)
+                  // Password
                   TextFormField(
                     controller: passwordController,
                     obscureText: true,
@@ -135,7 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 25),
 
-                  // ✅ Login Button
+                  // Login Button
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -162,6 +158,34 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
+                  ),
+
+                  const SizedBox(height: 15),
+
+                  // Register Option
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text("Don't have an account? "),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                              const RegisterScreen(),
+                            ),
+                          );
+                        },
+                        child: const Text(
+                          "Register",
+                          style: TextStyle(
+                            color: Colors.pink,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

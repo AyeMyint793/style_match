@@ -100,7 +100,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     ),
                     const SizedBox(height: 30),
 
-                    // ✅ Full Name
+                    // Full Name
                     TextFormField(
                       controller: nameController,
                       validator: (value) {
@@ -122,7 +122,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // ✅ Height (Numbers Only)
+                    //  Height (Numbers Only)
                     TextFormField(
                       controller: heightController,
                       keyboardType: TextInputType.number,
@@ -158,7 +158,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // ✅ Body Size
+                    //  Body Size
                     DropdownButtonFormField<String>(
                       value: selectedBodySize,
                       items: ['Small', 'Medium', 'Large']
@@ -185,7 +185,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     ),
                     const SizedBox(height: 30),
 
-                    // ✅ Save Button
+                    // Save Button
                     SizedBox(
                       width: double.infinity,
                       height: 55,
