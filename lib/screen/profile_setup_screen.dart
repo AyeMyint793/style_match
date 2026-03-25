@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'preference_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -17,14 +21,66 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   String selectedBodySize = 'Medium';
 
-  void saveProfile() {
+  String? userEmail; // ✅ store email
+
+  @override
+  void initState() {
+    super.initState();
+    loadEmail(); // ✅ load saved email
+  }
+
+  // ✅ Load email from SharedPreferences
+  void loadEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      userEmail = prefs.getString("email");
+    });
+  }
+
+  // ✅ Save Profile
+  Future<void> saveProfile() async {
     if (_formKey.currentState!.validate()) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const PreferenceScreen(),
-        ),
+
+      if (userEmail == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Email not found. Please login again")),
+        );
+        return;
+      }
+
+      var url = Uri.parse("http://10.0.2.2:8000/save-profile");
+
+      var response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": userEmail, // ✅ auto email
+          "name": nameController.text,
+          "height": heightController.text,
+          "size": selectedBodySize,
+        }),
       );
+
+      if (response.statusCode == 200) {
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Profile Saved Successfully")),
+        );
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const PreferenceScreen(),
+          ),
+        );
+
+      } else {
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to save profile")),
+        );
+
+      }
     }
   }
 
@@ -69,18 +125,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.deepPurple.shade50,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.checkroom,
-                        size: 60,
-                        color: Colors.deepPurple,
-                      ),
-                    ),
+
                     const SizedBox(height: 20),
 
                     const Text(
@@ -91,16 +136,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         color: Colors.deepPurple,
                       ),
                     ),
-                    const SizedBox(height: 10),
 
-                    const Text(
-                      "Enter your details to get personalized outfit recommendations.",
-                      style: TextStyle(fontSize: 14, color: Colors.black54),
-                      textAlign: TextAlign.center,
-                    ),
                     const SizedBox(height: 30),
 
-                    // Full Name
+                    // Name
                     TextFormField(
                       controller: nameController,
                       validator: (value) {
@@ -120,9 +159,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 20),
 
-                    //  Height (Numbers Only)
+                    // Height
                     TextFormField(
                       controller: heightController,
                       keyboardType: TextInputType.number,
@@ -133,16 +173,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         if (value == null || value.isEmpty) {
                           return "Height is required";
                         }
-
-                        final height = int.tryParse(value);
-                        if (height == null) {
-                          return "Enter a valid number";
-                        }
-
-                        if (height < 50 || height > 250) {
-                          return "Enter realistic height (50 - 250 cm)";
-                        }
-
                         return null;
                       },
                       decoration: InputDecoration(
@@ -156,18 +186,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 20),
 
-                    //  Body Size
+                    // Size
                     DropdownButtonFormField<String>(
                       value: selectedBodySize,
                       items: ['Small', 'Medium', 'Large']
-                          .map(
-                            (size) => DropdownMenuItem(
-                          value: size,
-                          child: Text(size),
-                        ),
-                      )
+                          .map((size) => DropdownMenuItem(
+                        value: size,
+                        child: Text(size),
+                      ))
                           .toList(),
                       onChanged: (value) {
                         setState(() {
@@ -183,6 +212,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 30),
 
                     // Save Button
@@ -196,14 +226,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(50),
                           ),
-                          elevation: 5,
                         ),
                         child: const Text(
                           'Save Profile',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
                           ),
                         ),
                       ),

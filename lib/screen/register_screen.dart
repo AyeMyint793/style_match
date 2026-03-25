@@ -1,8 +1,43 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class RegisterScreen extends StatelessWidget {
-  const RegisterScreen({super.key});
+  RegisterScreen({super.key});
+
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+
+  Future<void> registerUser(BuildContext context) async {
+    final url = Uri.parse("http://10.0.2.2:8000/register");
+
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "email": emailController.text,
+        "password": passwordController.text
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Register successful")),
+      );
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const LoginScreen(),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Register failed")),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,19 +51,9 @@ class RegisterScreen extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
 
-            // Name Field
-            const TextField(
-              decoration: InputDecoration(
-                labelText: "Full Name",
-                border: OutlineInputBorder(),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Email Field
-            const TextField(
-              decoration: InputDecoration(
+            TextField(
+              controller: emailController,
+              decoration: const InputDecoration(
                 labelText: "Email",
                 border: OutlineInputBorder(),
               ),
@@ -36,10 +61,10 @@ class RegisterScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // Password Field
-            const TextField(
+            TextField(
+              controller: passwordController,
               obscureText: true,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: "Password",
                 border: OutlineInputBorder(),
               ),
@@ -47,16 +72,9 @@ class RegisterScreen extends StatelessWidget {
 
             const SizedBox(height: 30),
 
-            // Register Button
             ElevatedButton(
               onPressed: () {
-                // After register go to login
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const LoginScreen(),
-                  ),
-                );
+                registerUser(context);
               },
               child: const Text("Register"),
             ),
