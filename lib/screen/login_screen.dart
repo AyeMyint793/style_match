@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'profile_setup_screen.dart';
+import 'home_screen.dart';
 import 'register_screen.dart';
+import 'profile_setup_screen.dart';
 import '../services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,12 +13,32 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
+  bool isLoading = false;
+  bool obscurePassword = true;
+  String? savedEmail;
+
+  @override
+  void initState() {
+    super.initState();
+    loadEmail();
+  }
+
+  void loadEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    savedEmail = prefs.getString("email");
+  }
 
   Future<void> loginUser() async {
+    if (emailController.text.isEmpty || passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill all fields")),
+      );
+      return;
+    }
+
+    setState(() => isLoading = true);
 
     bool success = await ApiService.login(
       emailController.text.trim(),
@@ -25,231 +46,237 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (success) {
-
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString("email", emailController.text); // ✅ save email
+      await prefs.setString("email", emailController.text.trim());
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const ProfileSetupScreen(),
-        ),
-      );
+      //  Check if profile exists in database
+      bool hasProfile = await ApiService.checkProfile(emailController.text.trim());
 
-    }  else {
+      //  TEMPORARY DEBUG - remove after fixing
+      print("DEBUG hasProfile: $hasProfile");
+      print("DEBUG email: ${emailController.text.trim()}");
 
+
+      if (hasProfile) {
+        // Old user — go directly to home
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      } else {
+        // New user — go to profile setup
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfileSetupScreen()),
+        );
+      }
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Login failed")),
+        const SnackBar(content: Text("Invalid email or password")),
       );
-
     }
-  }
 
-  @override
-  void dispose() {
-    emailController.dispose();
-    passwordController.dispose();
-    super.dispose();
+    setState(() => isLoading = false);
   }
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
-      backgroundColor: const Color(0xFFE5E5E5),
-
-      body: Center(
+      backgroundColor: Color(0xFFFAF7F2),
+      body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
 
-          child: Container(
-            padding: const EdgeInsets.all(25),
+              SizedBox(height: 40),
 
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 20,
-                  offset:  Offset(0, 8),
+              //  Icon
+              Center(
+                child: Container(
+                  padding: EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.shade200,
+                        blurRadius: 15,
+                      )
+                    ],
+                  ),
+                  child: Icon(Icons.checkroom, size: 50, color: Color(0xFF0F766E)),
                 ),
-              ],
-            ),
+              ),
 
-            child: Form(
-              key: _formKey,
+              SizedBox(height: 30),
 
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-
-                children: [
-
-                  const Icon(Icons.style, size: 60, color: Colors.black87),
-
-                  const SizedBox(height: 10),
-
-                  const Text(
-                    "Style Match",
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                    ),
+              Center(
+                child: Text(
+                  "Welcome Back",
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
                   ),
+                ),
+              ),
 
-                  const SizedBox(height: 5),
+              SizedBox(height: 8),
 
-                  const Text(
-                    "Login to continue",
-                    style: TextStyle(
-                      color: Colors.black54,
-                      fontSize: 14,
-                    ),
+              Center(
+                child: Text(
+                  "Login to your Style Match account",
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+              ),
+
+              SizedBox(height: 40),
+
+              //  Email
+              Text(
+                "Email",
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: Colors.black87,
+                ),
+              ),
+              SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.shade200,
+                      blurRadius: 8,
+                    )
+                  ],
+                ),
+                child: TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  onTap: () {
+                    if (savedEmail != null && emailController.text.isEmpty) {
+                      emailController.text = savedEmail!;
+                    }
+                  },
+                  decoration: InputDecoration(
+                    hintText: "Enter your email",
+                    hintStyle: TextStyle(color: Colors.grey.shade400),
+                    prefixIcon: Icon(Icons.email_outlined, color: Colors.grey),
+                    border: InputBorder.none,
+                    contentPadding:
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   ),
+                ),
+              ),
 
-                  const SizedBox(height: 25),
+              SizedBox(height: 20),
 
-                  // EMAIL FIELD
-
-                  TextFormField(
-                    controller: emailController,
-                    keyboardType: TextInputType.emailAddress,
-
-                    validator: (value) {
-
-                      if (value == null || value.isEmpty) {
-                        return "Enter your email";
-                      }
-
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w]{2,4}$')
-                          .hasMatch(value)) {
-                        return "Enter a valid email";
-                      }
-
-                      return null;
-                    },
-
-                    decoration: InputDecoration(
-                      hintText: "Email",
-                      prefixIcon: const Icon(Icons.email_outlined),
-                      filled: true,
-                      fillColor: const Color(0xFFF2F2F2),
-
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  // PASSWORD FIELD
-
-                  TextFormField(
-                    controller: passwordController,
-                    obscureText: true,
-
-                    validator: (value) {
-
-                      if (value == null || value.isEmpty) {
-                        return "Enter your password";
-                      }
-
-                      if (value.length < 6) {
-                        return "Password must be at least 6 characters";
-                      }
-
-                      return null;
-                    },
-
-                    decoration: InputDecoration(
-                      hintText: "Password",
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      filled: true,
-                      fillColor: const Color(0xFFF2F2F2),
-
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 25),
-
-                  // LOGIN BUTTON
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-
-                    child: ElevatedButton(
-
-                      onPressed: () {
-
-                        if (_formKey.currentState!.validate()) {
-                          loginUser();
-                        }
-
+              //  Password
+              Text(
+                "Password",
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: Colors.black87,
+                ),
+              ),
+              SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.shade200,
+                      blurRadius: 8,
+                    )
+                  ],
+                ),
+                child: TextField(
+                  controller: passwordController,
+                  obscureText: obscurePassword,
+                  decoration: InputDecoration(
+                    hintText: "Enter your password",
+                    hintStyle: TextStyle(color: Colors.grey.shade400),
+                    prefixIcon: Icon(Icons.lock_outline, color: Colors.grey),
+                    suffixIcon: GestureDetector(
+                      onTap: () {
+                        setState(() => obscurePassword = !obscurePassword);
                       },
-
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black87,
-
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-
-                      child: const Text(
-                        "Login",
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.white,
-                        ),
+                      child: Icon(
+                        obscurePassword
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        color: Colors.grey,
                       ),
                     ),
+                    border: InputBorder.none,
+                    contentPadding:
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   ),
+                ),
+              ),
 
-                  const SizedBox(height: 15),
+              SizedBox(height: 36),
 
-                  // REGISTER OPTION
+              //  Login button
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton(
+                  onPressed: isLoading ? null : loginUser,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF0F766E),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: isLoading
+                      ? CircularProgressIndicator(color: Colors.white)
+                      : Text(
+                    "Login",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
 
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+              SizedBox(height: 24),
 
-                    children: [
-
-                      const Text("Don't have an account? "),
-
-                      GestureDetector(
-
-                        onTap: () {
-
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>  RegisterScreen(),
-                            ),
-                          );
-
-                        },
-
-                        child: const Text(
-                          "Register",
+              // Register link
+              Center(
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => RegisterScreen()),
+                  ),
+                  child: RichText(
+                    text: TextSpan(
+                      text: "Don't have an account? ",
+                      style: TextStyle(color: Colors.grey, fontSize: 14),
+                      children: [
+                        TextSpan(
+                          text: "Register",
                           style: TextStyle(
-                            color: Colors.pink,
+                            color: Color(0xFF0F766E),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ),
-
-                    ],
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
