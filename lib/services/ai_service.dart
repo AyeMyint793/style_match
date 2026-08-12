@@ -1,15 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
 class AIService {
-  static Future<Map<String, String>> detectClothing(String imagePath) async {
+  static Future<Map<String, dynamic>> detectClothing(String imagePath) async {
     try {
-      final apiKey = dotenv.env['GEMINI_API_KEY']!;
+      final apiKey = dotenv.env['GEMINI_API_KEY'];
+      if (apiKey == null || apiKey.isEmpty) {
+        debugPrint('AIService.detectClothing: GEMINI_API_KEY not set');
+        return {"fallback": true, "confidence": "low"};
+      }
 
       final model = GenerativeModel(
-        model: 'gemini-2.5-flash-lite',
+        model: 'gemini-3.5-flash',
         apiKey: apiKey,
       );
 
@@ -21,90 +26,129 @@ class AIService {
         mimeType = "image/png";
       }
 
-      final prompt = TextPart("""Look at this clothing image carefully.
+      final prompt = TextPart("""Analyze this image for a professional digital fashion wardrobe.
 
 Respond with ONLY this exact JSON format, no extra text:
 {
+  "is_clothing": true/false,
+  "confidence": "high/low",
   "category": "...",
   "subcategory": "...",
   "occasion": "...",
   "season": "...",
-  "color": "..."
+  "color": "...",
+  "stylist_note": "..."
 }
 
-Category rules (choose ONE):
-- Tops → t-shirt, shirt, blouse, crop top, tank top, kurta, hoodie
-- Bottoms → jeans, trousers, shorts, skirt, leggings, salwar, dhoti
-- Dress → dress, gown, saree, lehenga, salwar kameez (full outfit)
-- Shoes → sneakers, heels, sandals, boots, flats, formal shoes, chappal
-- Outerwear → jacket, coat, blazer, cardigan, shawl, dupatta
-- Accessories → bag, belt, watch, jewelry, scarf, cap, sunglasses
+Rules:
+1. is_clothing: Set to true ONLY if the main subject is a clothing item, footwear, or fashion accessory. Set to false for rooms, pets, faces, or non-fashion objects.
+2. confidence: Set to "low" if the image is dark, blurry, or the item is mostly obscured.
+3. category: Choose ONE (Tops, Bottoms, Dress, Shoes, Outerwear, Accessories).
+4. subcategory: Be specific (e.g. "Chelsea Boots", "Oversized Hoodie", "Slim Fit Jeans").
+5. occasion: Casual, Work, Formal, Date Night, Party, Gym, Travel.
+6. season: Summer, Winter, All Season.
+7. color: Dominant primary color.
+8. stylist_note: Write 1 professional sentence on why this item is versatile or stylish.
 
-Subcategory rules (be specific, choose ONE):
-- For Tops: T-Shirt, Shirt, Blouse, Crop Top, Tank Top, Kurta, Hoodie, Sweater
-- For Bottoms: Jeans, Trousers, Shorts, Skirt, Leggings, Salwar, Dhoti
-- For Dress: Dress, Gown, Saree, Lehenga, Salwar Kameez
-- For Shoes: Sneakers, Heels, Sandals, Boots, Flats, Formal Shoes
-- For Outerwear: Jacket, Coat, Blazer, Cardigan, Shawl, Dupatta
-- For Accessories: Bag, Belt, Watch, Jewelry, Scarf, Cap, Sunglasses
-
-Occasion rules (choose ONE):
-- Casual, Work, Formal, Date Night, Party, Brunch, Gym, Outdoor, Wedding, Travel
-
-Season rules (choose ONE):
-- Summer, Winter, All Season
-
-Color rules:
-- Identify the PRIMARY color of the item (e.g. Black, White, Blue, Red, Green, Yellow, Pink, Brown, Grey, Orange, Purple, Beige, Multicolor)
-
-IMPORTANT: Return JSON only, no markdown, no explanation.""");
+IMPORTANT: Return JSON only. No markdown, no backticks.""");
 
       final imagePart = DataPart(mimeType, imageBytes);
 
-      final response = await model.generateContent([
-        Content.multi([imagePart, prompt])
-      ]);
+      String rawText = '';
+      Map<String, dynamic>? jsonResult;
 
-      final text = response.text ?? "";
-      print("Gemini Response: $text");
-
-      final cleaned = text
-          .replaceAll("```json", "")
-          .replaceAll("```", "")
-          .trim();
-
-      final jsonResult = _parseJson(cleaned);
-
-      return {
-        "category": jsonResult["category"] ?? "Tops",
-        "subcategory": jsonResult["subcategory"] ?? "T-Shirt",
-        "occasion": jsonResult["occasion"] ?? "Casual",
-        "season": jsonResult["season"] ?? "All Season",
-        "color": jsonResult["color"] ?? "Unknown",
-      };
-    } catch (e) {
-      print("AI Error: $e");
-      return {
-        "category": "Tops",
-        "subcategory": "T-Shirt",
-        "occasion": "Casual",
-        "season": "All Season",
-        "color": "Unknown",
-      };
-    }
-  }
-
-  static Map<String, dynamic> _parseJson(String text) {
-    try {
-      final start = text.indexOf('{');
-      final end = text.lastIndexOf('}');
-      if (start != -1 && end != -1) {
-        final jsonStr = text.substring(start, end + 1);
-        return jsonDecode(jsonStr);
+      // Limited retry attempts
+      int attempts = 0;
+      const int maxAttempts = 3;
+      while (attempts < maxAttempts) {
+        attempts += 1;
+        try {
+          final response = await model.generateContent([
+            Content.multi([imagePart, prompt])
+          ]);
+          rawText = response.text ?? '';
+          if (rawText.trim().isEmpty) {
+            debugPrint('AIService.detectClothing: empty response on attempt $attempts');
+            if (attempts < maxAttempts) {
+              await Future.delayed(Duration(seconds: attempts * 2));
+            }
+            continue;
+          }
+ 
+          // Try to extract a JSON object from the raw text safely
+          String candidate = rawText;
+          // Remove common fence markers
+          candidate = candidate.replaceAll('```json', '').replaceAll('```', '').trim();
+ 
+          // Find the first { and last } to try to isolate JSON
+          int first = candidate.indexOf('{');
+          int last = candidate.lastIndexOf('}');
+          if (first != -1 && last != -1 && last > first) {
+            String sub = candidate.substring(first, last + 1);
+            try {
+              jsonResult = jsonDecode(sub);
+              break; // parsed successfully
+            } catch (pe) {
+              debugPrint('AIService.detectClothing: JSON parse failed on attempt $attempts, trying to clean - error: $pe');
+              if (attempts < maxAttempts) {
+                await Future.delayed(Duration(seconds: attempts * 2));
+              }
+            }
+          } else {
+            debugPrint('AIService.detectClothing: no JSON braces found on attempt $attempts');
+            if (attempts < maxAttempts) {
+              await Future.delayed(Duration(seconds: attempts * 2));
+            }
+          }
+        } catch (e) {
+          debugPrint('AIService.detectClothing: model.generateContent failed on attempt $attempts: $e');
+          if (attempts < maxAttempts) {
+            final errStr = e.toString().toLowerCase();
+            if (errStr.contains('quota') || errStr.contains('limit') || errStr.contains('429') || errStr.contains('exceeded')) {
+              // Wait longer for free-tier rate limit to reset (typically 15s)
+              debugPrint('AIService.detectClothing: Quota/Rate limit exceeded. Waiting 15s before retrying...');
+              await Future.delayed(const Duration(seconds: 15));
+            } else {
+              await Future.delayed(Duration(seconds: attempts * 2));
+            }
+          }
+        }
       }
+
+      if (jsonResult == null) {
+        debugPrint('AIService.detectClothing: all attempts failed, returning fallback marker');
+        return {"fallback": true, "confidence": "low"};
+      }
+
+      // Robust boolean parsing
+      bool isClothing = jsonResult["is_clothing"] == true ||
+                        jsonResult["is_clothing"]?.toString().toLowerCase() == "true";
+
+      // Normalize fields to strings where appropriate
+      String confidence = jsonResult["confidence"]?.toString() ?? "low";
+      String category = jsonResult["category"]?.toString() ?? "";
+      String subcategory = jsonResult["subcategory"]?.toString() ?? "";
+      String occasion = jsonResult["occasion"]?.toString() ?? "";
+      String season = jsonResult["season"]?.toString() ?? "";
+      String color = jsonResult["color"]?.toString() ?? "";
+      String stylistNote = jsonResult["stylist_note"]?.toString() ?? "";
+
+      // Return parsed result; do not inject optimistic defaults here — let the UI decide about saving
+      final result = {
+        "is_clothing": isClothing.toString(),
+        "confidence": confidence,
+        "category": category,
+        "subcategory": subcategory,
+        "occasion": occasion,
+        "season": season,
+        "color": color,
+        "stylist_note": stylistNote,
+      };
+
+      return result;
     } catch (e) {
-      print("Parse error: $e");
+      debugPrint('AIService.detectClothing: unexpected error: $e');
+      return {"fallback": true, "confidence": "low"};
     }
-    return {};
   }
 }

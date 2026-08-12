@@ -24,6 +24,7 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
   Map<String, dynamic>? wardrobeStats;
   bool isAnalyzing = false;
   String? insightsError;
+  bool showInsights = true;
 
   @override
   void initState() {
@@ -181,27 +182,33 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
       body: isLoadingClothes
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF0F766E)))
-          : Column(
-              children: [
-                _buildTripPlannerBanner(),
-                if (wardrobeGaps.isNotEmpty) _buildSuggestions(),
-                Expanded(
-                  child: clothes.isEmpty
-                      ? _buildEmptyState()
-                      : GridView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 14,
-                            mainAxisSpacing: 14,
-                            childAspectRatio: 0.85,
-                          ),
-                          itemCount: clothes.length,
-                          itemBuilder: (context, index) =>
-                              _buildClothesCard(index),
-                        ),
-                ),
+          : CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(child: _buildTripPlannerBanner()),
+                if (wardrobeGaps.isNotEmpty)
+                  SliverToBoxAdapter(child: _buildSuggestions()),
+                if (clothes.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _buildEmptyState(),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                    sliver: SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                        childAspectRatio: 0.85,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) => _buildClothesCard(index),
+                        childCount: clothes.length,
+                      ),
+                    ),
+                  ),
               ],
             ),
       floatingActionButton: FloatingActionButton.extended(
@@ -263,86 +270,61 @@ class _WardrobeScreenState extends State<WardrobeScreen> {
   }
 
   Widget _buildSuggestions() {
+    if (!showInsights) return const SizedBox.shrink();
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFFE082)),
+        color: const Color(0xFFE8F6F4),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBFEAE6)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Icon(Icons.tips_and_updates, color: Colors.amber.shade900, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                "Wardrobe Insights",
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber.shade900),
-              ),
-              const Spacer(),
-              if (isAnalyzing) const SizedBox(width: 16),
-              if (isAnalyzing) const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Stats section
-          if (wardrobeStats != null) ...[
-            Text("Total items: ${wardrobeStats!["total_items"]}", style: TextStyle(fontSize: 12, color: Colors.amber.shade900)),
-            const SizedBox(height: 8),
-            if ((wardrobeStats!["category_counts"] as Map).isNotEmpty) Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: (wardrobeStats!["percent_by_category"] as Map<String, dynamic>).entries.map((e) {
-                return Chip(
-                  backgroundColor: Colors.white,
-                  label: Text('${e.key} (${e.value}%)', style: TextStyle(color: Colors.amber.shade900, fontSize: 12)),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 8),
-            if ((wardrobeStats!["dominant_colors"] as List).isNotEmpty) Column(
+          const Icon(Icons.lightbulb, color: Color(0xFF0F766E), size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Dominant colors:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
                 Row(
-                  children: (wardrobeStats!["dominant_colors"] as List).map((c) {
-                    // color value may be a string like 'Black' — show a colored dot when possible
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Row(
-                        children: [
-                          Container(width: 18, height: 18, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(4))),
-                          const SizedBox(width: 6),
-                          Text('${c["value"]} (${c["percent"]}%)', style: TextStyle(fontSize: 12, color: Colors.amber.shade900)),
-                        ],
-                      ),
-                    );
-                  }).toList(),
+                  children: [
+                    Text('Wardrobe Insights', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF0F766E))),
+                    const SizedBox(width: 8),
+                    if (isAnalyzing) const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F766E))),
+                  ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
+                // Small stats row
+                if (wardrobeStats != null) Row(
+                  children: [
+                    Text('Total: ${wardrobeStats!["total_items"]}', style: const TextStyle(fontSize: 12, color: Color(0xFF0F766E))),
+                    const SizedBox(width: 12),
+                    // show top 2 categories
+                    if (wardrobeStats!["percent_by_category"] is Map && (wardrobeStats!["percent_by_category"] as Map).isNotEmpty)
+                      ...((wardrobeStats!["percent_by_category"] as Map<String, dynamic>).entries.take(2).map((e) => Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: Chip(label: Text('${e.key} ${e.value}%', style: const TextStyle(fontSize: 11, color: Color(0xFF0F766E))), backgroundColor: Colors.white),
+                      ))).toList(),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                if (wardrobeStats != null && wardrobeStats!["dominant_colors"] is List && (wardrobeStats!["dominant_colors"] as List).isNotEmpty) ...[
+                  Text('Top colors: ' + (wardrobeStats!["dominant_colors"] as List).take(3).map((c) => '${c["value"]}').join(', '), style: const TextStyle(fontSize: 12, color: Color(0xFF0F766E))),
+                  if (wardrobeGaps.isNotEmpty) const SizedBox(height: 6),
+                ],
+                if (wardrobeGaps.isNotEmpty)
+                  Text('Tips: ${wardrobeGaps.first["suggestion"]}', style: const TextStyle(fontSize: 12, color: Color(0xFF0F766E))),
               ],
             ),
-          ],
-
-          // Insights / suggestions
-          if (wardrobeGaps.isNotEmpty)
-            ...wardrobeGaps.take(3).map((gap) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text("• ${gap['suggestion']}", style: TextStyle(fontSize: 12, color: Colors.amber.shade900)),
-                ))
-          else if (!isAnalyzing)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text('No specific suggestions at the moment.', style: TextStyle(fontSize: 12, color: Colors.amber.shade900)),
-            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Color(0xFF0F766E), size: 20),
+            onPressed: () {
+              setState(() => showInsights = false);
+            },
+          )
         ],
       ),
     );
@@ -462,11 +444,10 @@ class _BatchUploadTrayState extends State<_BatchUploadTray> {
   }
 
   Future<void> _startParallelProcessing() async {
-    List<Future<void>> uploadFutures = [];
+    // Process items sequentially instead of in parallel to respect Gemini free tier rate limits (5 RPM)
     for (var item in widget.items) {
-      uploadFutures.add(_processSingleItem(item));
+      await _processSingleItem(item);
     }
-    await Future.wait(uploadFutures);
   }
 
   Future<void> _processSingleItem(_UploadItem item) async {
@@ -534,16 +515,26 @@ class _BatchUploadTrayState extends State<_BatchUploadTray> {
     for (var item in widget.items) {
       if (item.status == "Done" && item.detectedTags != null) {
         debugPrint('saveAllToDatabase item: status=${item.status}, detectedTags=${item.detectedTags}');
-        final success = await ApiService.saveClothes(
-          widget.userEmail,
-          item.cloudinaryUrl!,
-          item.detectedTags!["category"] ?? "Tops",
-          item.detectedTags!["subcategory"] ?? "",
-          item.detectedTags!["occasion"] ?? "Casual",
-          item.detectedTags!["season"] ?? "All Season",
-          item.detectedTags!["color"] ?? "",
-          item.detectedTags!["stylist_note"] ?? "",
-        );
+
+      // Safety: do not silently save fallback/low-confidence detections
+      final detected = item.detectedTags!;
+      final bool isFallback = detected["fallback"] == true || detected["confidence"]?.toString().toLowerCase() == "low" || (detected["category"] == null || detected["category"].toString().trim().isEmpty);
+      if (isFallback) {
+        // Mark item as needing review and skip saving
+        if (mounted) setState(() => item.status = "Invalid");
+        continue;
+      }
+
+      final success = await ApiService.saveClothes(
+        widget.userEmail,
+        item.cloudinaryUrl!,
+        detected["category"] ?? "",
+        detected["subcategory"] ?? "",
+        detected["occasion"] ?? "",
+        detected["season"] ?? "",
+        detected["color"] ?? "",
+        detected["stylist_note"] ?? "",
+      );
         debugPrint('saveAllToDatabase result: success=$success');
         if (success) successCount++;
       }
@@ -934,7 +925,7 @@ class _ItemReviewSheet extends StatelessWidget {
 class _UploadItem {
   final XFile file;
   String? cloudinaryUrl;
-  Map<String, String>? detectedTags;
+  Map<String, dynamic>? detectedTags;
   String status; // "Pending", "Uploading", "Analyzing", "Done", "Invalid", "Failed"
   double progress;
 

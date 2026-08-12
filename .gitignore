@@ -46,3 +46,12 @@ app.*.map.json
 # API Keys - never commit
 .env
 *.env
+
+# Python backend
+backend/venv/
+__pycache__/
+*.py[cod]
+
+# Local database
+backend/users.db
+backend/venv/

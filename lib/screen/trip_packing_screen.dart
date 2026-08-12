@@ -72,28 +72,21 @@ class _TripPackingScreenState extends State<TripPackingScreen> {
     await fetchDestinationWeather(destinationController.text.trim());
 
     try {
-      final response = await http.post(
-        Uri.parse("http://10.0.2.2:8000/trip-packing"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "email": userEmail,
-          "destination": destinationController.text.trim(),
-          "days": int.parse(daysController.text.trim()),
-          "trip_type": selectedTripType,
-          "activities": activitiesController.text.trim(),
-          "weather": weatherInfo,
-        }),
+      final data = await ApiService.tripPacking(
+        userEmail!,
+        destinationController.text.trim(),
+        int.parse(daysController.text.trim()),
+        selectedTripType,
+        activitiesController.text.trim(),
+        weatherInfo,
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data["success"] == true) {
-          setState(() => result = data);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(data["message"] ?? "Failed to generate packing list")),
-          );
-        }
+      if (data != null && data["success"] == true) {
+        setState(() => result = data);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data?["message"] ?? "Failed to generate packing list")),
+        );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -451,42 +444,112 @@ class _TripPackingScreenState extends State<TripPackingScreen> {
                 ),
                 const SizedBox(height: 12),
                 ...(result!["combinations"] as List<dynamic>).asMap().entries.map((entry) {
+                  final comboString = entry.value.toString();
+
+                  // Extract label (text before the colon, e.g. "Sightseeing")
+                  String label = "Outfit ${entry.key + 1}";
+                  final colonIndex = comboString.indexOf(":");
+                  if (colonIndex != -1) {
+                    label = comboString.substring(0, colonIndex).trim();
+                  }
+
+                  // Extract item IDs from parentheses, e.g. (10), (6), (4)
+                  final idMatches = RegExp(r'\((\d+)\)').allMatches(comboString);
+                  final ids = idMatches.map((m) => int.parse(m.group(1)!)).toList();
+
+                  // Look up matching items from packing_list
+                  final packingList = result!["packing_list"] as List<dynamic>;
+                  final matchedItems = ids.map((id) {
+                    return packingList.firstWhere(
+                          (entry) => entry["item"]["id"] == id,
+                      orElse: () => null,
+                    );
+                  }).where((e) => e != null).toList();
+
                   return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
+                    margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: const Color(0xFFEEEEEE)),
                     ),
-                    child: Row(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 28,
-                          height: 28,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF0F766E),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              "${entry.key + 1}",
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                        Row(
+                          children: [
+                            Container(
+                              width: 28,
+                              height: 28,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF0F766E),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  "${entry.key + 1}",
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                            const SizedBox(width: 10),
+                            Text(
+                              label,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF171717),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            entry.value.toString(),
-                            style: const TextStyle(fontSize: 13, color: Color(0xFF171717)),
+                        const SizedBox(height: 12),
+                        if (matchedItems.isNotEmpty)
+                  SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                  children: matchedItems.map((entry) {
+                              final cloth = entry["item"];
+                              final imagePath = cloth["image_path"]?.toString() ?? "";
+                              final subcategory = cloth["subcategory"]?.toString() ?? "";
+
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 10),
+                                child: Column(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Image.network(
+                                        imagePath,
+                                        width: 60,
+                                        height: 60,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            Container(
+                                              width: 60,
+                                              height: 60,
+                                              color: const Color(0xFFF5F5F5),
+                                              child: const Icon(Icons.broken_image_outlined,
+                                                  color: Colors.grey, size: 20),
+                                            ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      subcategory,
+                                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
                           ),
-                        ),
+                  )
                       ],
                     ),
                   );

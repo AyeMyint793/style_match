@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'preference_screen.dart';
+import '../services/api_service.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({Key? key}) : super(key: key);
@@ -47,19 +46,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     setState(() => isLoading = true);
 
     try {
-      var url = Uri.parse("http://10.0.2.2:8000/save-profile");
-      var response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "email": userEmail,
-          "name": nameController.text.trim(),
-          "height": heightController.text.trim(),
-          "size": selectedSize,
-        }),
+      final success = await ApiService.saveProfile(
+        userEmail!,
+        nameController.text.trim(),
+        heightController.text.trim(),
+        selectedSize,
       );
 
-      if (response.statusCode == 200) {
+      if (success) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString("name", nameController.text.trim());
         await prefs.setString("size", selectedSize);

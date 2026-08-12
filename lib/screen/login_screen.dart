@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
 import 'profile_setup_screen.dart';
+import 'forgot_password_screen.dart';
 import '../services/api_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,267 +18,279 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController passwordController = TextEditingController();
   bool isLoading = false;
   bool obscurePassword = true;
-  String? savedEmail;
 
-  @override
-  void initState() {
-    super.initState();
-    loadEmail();
-  }
-
-  void loadEmail() async {
-    final prefs = await SharedPreferences.getInstance();
-    savedEmail = prefs.getString("email");
+  // Professional Email Validation
+  bool _isValidEmail(String email) {
+    return RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+")
+        .hasMatch(email);
   }
 
   Future<void> loginUser() async {
-    if (emailController.text.isEmpty || passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill all fields")),
-      );
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
+    // 1. Basic Validation
+    if (email.isEmpty || password.isEmpty) {
+      _showError("Please fill all fields");
+      return;
+    }
+
+    // 2. Email Format Validation
+    if (!_isValidEmail(email)) {
+      _showError("Please enter a valid email address");
       return;
     }
 
     setState(() => isLoading = true);
 
-    bool success = await ApiService.login(
-      emailController.text.trim(),
-      passwordController.text.trim(),
-    );
+    try {
+      bool success = await ApiService.login(email, password);
 
-    if (success) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString("email", emailController.text.trim());
+      if (success) {
+        // 3. Persistent Session
+        await AuthService.login(email);
 
-      //  Check if profile exists in database
-      bool hasProfile = await ApiService.checkProfile(emailController.text.trim());
+        bool hasProfile = await ApiService.checkProfile(email);
 
-      //  TEMPORARY DEBUG - remove after fixing
-      print("DEBUG hasProfile: $hasProfile");
-      print("DEBUG email: ${emailController.text.trim()}");
-
-
-      if (hasProfile) {
-        // Old user — go directly to home
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+        if (!mounted) return;
+        if (hasProfile) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const ProfileSetupScreen()),
+          );
+        }
       } else {
-        // New user — go to profile setup
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const ProfileSetupScreen()),
-        );
+        _showError("Incorrect email or password");
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Invalid email or password")),
-      );
+    } catch (e) {
+      _showError("Connection failed. Please check your network.");
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
+  }
 
-    setState(() => isLoading = false);
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFFAF7F2),
+      backgroundColor: const Color(0xFFFAF7F2),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-
-              SizedBox(height: 40),
-
-              //  Icon
-              Center(
-                child: Container(
-                  padding: EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.shade200,
-                        blurRadius: 15,
-                      )
-                    ],
-                  ),
-                  child: Icon(Icons.checkroom, size: 50, color: Color(0xFF0F766E)),
-                ),
-              ),
-
-              SizedBox(height: 30),
-
-              Center(
-                child: Text(
-                  "Welcome Back",
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-
-              SizedBox(height: 8),
-
-              Center(
-                child: Text(
-                  "Login to your Style Match account",
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-              ),
-
-              SizedBox(height: 40),
-
-              //  Email
-              Text(
-                "Email",
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: Colors.black87,
-                ),
-              ),
-              SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.shade200,
-                      blurRadius: 8,
-                    )
-                  ],
-                ),
-                child: TextField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  onTap: () {
-                    if (savedEmail != null && emailController.text.isEmpty) {
-                      emailController.text = savedEmail!;
-                    }
-                  },
-                  decoration: InputDecoration(
-                    hintText: "Enter your email",
-                    hintStyle: TextStyle(color: Colors.grey.shade400),
-                    prefixIcon: Icon(Icons.email_outlined, color: Colors.grey),
-                    border: InputBorder.none,
-                    contentPadding:
-                    EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  ),
-                ),
-              ),
-
-              SizedBox(height: 20),
-
-              //  Password
-              Text(
-                "Password",
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: Colors.black87,
-                ),
-              ),
-              SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.shade200,
-                      blurRadius: 8,
-                    )
-                  ],
-                ),
-                child: TextField(
-                  controller: passwordController,
-                  obscureText: obscurePassword,
-                  decoration: InputDecoration(
-                    hintText: "Enter your password",
-                    hintStyle: TextStyle(color: Colors.grey.shade400),
-                    prefixIcon: Icon(Icons.lock_outline, color: Colors.grey),
-                    suffixIcon: GestureDetector(
-                      onTap: () {
-                        setState(() => obscurePassword = !obscurePassword);
-                      },
-                      child: Icon(
-                        obscurePassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    border: InputBorder.none,
-                    contentPadding:
-                    EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  ),
-                ),
-              ),
-
-              SizedBox(height: 36),
-
-              //  Login button
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : loginUser,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF0F766E),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: isLoading
-                      ? CircularProgressIndicator(color: Colors.white)
-                      : Text(
-                    "Login",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(), // Dismiss keyboard on tap outside
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 40),
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
                       color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-
-              SizedBox(height: 24),
-
-              // Register link
-              Center(
-                child: GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => RegisterScreen()),
-                  ),
-                  child: RichText(
-                    text: TextSpan(
-                      text: "Don't have an account? ",
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
-                      children: [
-                        TextSpan(
-                          text: "Register",
-                          style: TextStyle(
-                            color: Color(0xFF0F766E),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.shade200,
+                          blurRadius: 15,
+                          offset: const Offset(0, 5),
+                        )
                       ],
                     ),
+                    child: const Icon(Icons.checkroom, size: 48, color: Color(0xFF0F766E)),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 32),
+                const Center(
+                  child: Text(
+                    "Style Match",
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF171717),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Center(
+                  child: Text(
+                    "Your personal AI stylist",
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                ),
+                const SizedBox(height: 48),
+
+                // Email
+                const Text(
+                  "Email",
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: emailController,
+                  hint: "Enter your email",
+                  icon: Icons.email_outlined,
+                  type: TextInputType.emailAddress,
+                  action: TextInputAction.next,
+                ),
+
+                const SizedBox(height: 20),
+
+                // Password
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Password",
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        FocusScope.of(context).unfocus();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+                        );
+                      },
+                      child: const Text(
+                        "Forgot password?",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF0F766E),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  controller: passwordController,
+                  hint: "Enter your password",
+                  icon: Icons.lock_outline,
+                  obscure: obscurePassword,
+                  action: TextInputAction.done,
+                  onSubmit: (_) => loginUser(),
+                  suffix: IconButton(
+                    icon: Icon(
+                      obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      color: Colors.grey,
+                      size: 20,
+                    ),
+                    onPressed: () => setState(() => obscurePassword = !obscurePassword),
+                  ),
+                ),
+
+                const SizedBox(height: 40),
+
+                // Login button
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton(
+                    onPressed: isLoading ? null : loginUser,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F766E),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Text(
+                            "Login",
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                          ),
+                  ),
+                ),
+
+                const SizedBox(height: 28),
+
+                // Register link
+                Center(
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                    ),
+                    child: RichText(
+                      text: const TextSpan(
+                        text: "New here? ",
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                        children: [
+                          TextSpan(
+                            text: "Create an account",
+                            style: TextStyle(
+                              color: Color(0xFF0F766E),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    bool obscure = false,
+    Widget? suffix,
+    TextInputType type = TextInputType.text,
+    TextInputAction? action,
+    Function(String)? onSubmit,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade200,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: TextField(
+        controller: controller,
+        obscureText: obscure,
+        keyboardType: type,
+        textInputAction: action,
+        onSubmitted: onSubmit,
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+          prefixIcon: Icon(icon, color: Colors.grey, size: 20),
+          suffixIcon: suffix,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         ),
       ),
     );

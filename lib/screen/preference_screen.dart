@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'home_screen.dart';
+import '../services/api_service.dart';
 
 class PreferenceScreen extends StatefulWidget {
   const PreferenceScreen({Key? key}) : super(key: key);
@@ -47,21 +46,13 @@ class _PreferenceScreenState extends State<PreferenceScreen> {
     setState(() => isLoading = true);
 
     try {
-      // Save to database
-      final url = Uri.parse("http://10.0.2.2:8000/save-preferences");
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "email": userEmail,
-          "fit": selectedFit ?? "Regular",
-          "style": selectedStyle ?? "Casual",
-        }),
+      final success = await ApiService.savePreferences(
+        userEmail!,
+        selectedFit ?? "Regular",
+        selectedStyle ?? "Casual",
       );
 
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && data["success"] == true) {
+      if (success) {
         //  Also save locally
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString("fit_preference", selectedFit ?? "Regular");

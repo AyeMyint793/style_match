@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:style_match/screen/wardrobe_screen.dart';
-import 'login_screen.dart';
 import 'package:style_match/screen/settings_screen.dart';
 import 'package:style_match/screen/ai_outfit_screen.dart';
 import 'package:style_match/screen/saved_screen.dart';
-import 'package:style_match/screen/trip_packing_screen.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -16,134 +15,106 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = [
-    AIOutfitScreen(),
+    const AIOutfitScreen(),
     WardrobeScreen(),
     const SavedScreen(),
   ];
-
-  void logout(BuildContext context) {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const LoginScreen(),
-      ),
-          (route) => false,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Color(0xFF0F766E),
+        backgroundColor: const Color(0xFFFAF7F2),
         elevation: 0,
-        centerTitle: true,
-        title: Text(
+        centerTitle: false,
+        title: const Text(
           "Style Match",
           style: TextStyle(
-            color: Colors.white,
+            color: Color(0xFF171717),
             fontWeight: FontWeight.bold,
-            fontSize: 20,
+            fontSize: 22,
+            letterSpacing: -0.5,
           ),
         ),
         actions: [
           IconButton(
             onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SettingsScreen(),
-                  ),
-                );
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
             },
-            icon: Icon(Icons.person_outline, color: Colors.white),
+            icon: const Icon(Icons.person_outline, color: Color(0xFF171717)),
           ),
+          const SizedBox(width: 8),
         ],
       ),
 
-      body: _screens[_currentIndex],
-
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        selectedItemColor: Color(0xFF0F766E),
-        unselectedItemColor: Colors.grey,
-        backgroundColor: Colors.white,
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.auto_awesome),
-            label: "AI Outfit",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.checkroom),
-            label: "Wardrobe",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_border),
-            label: "Saved",
-          ),
-        ],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
       ),
-    );
-  }
-}
 
-//  Placeholder screens (we will build these properly later)
-class AIScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.auto_awesome, size: 60, color: Colors.grey),
-          SizedBox(height: 16),
-          Text(
-            "AI Outfit Suggestion",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+            )
+          ],
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          selectedItemColor: const Color(0xFF0F766E),
+          unselectedItemColor: Colors.grey.shade400,
+          backgroundColor: Colors.white,
+          type: BottomNavigationBarType.fixed,
+          selectedFontSize: 12,
+          unselectedFontSize: 12,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.auto_awesome_outlined),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.auto_awesome),
+              ),
+              label: "Stylist",
             ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            "Coming soon 🔥",
-            style: TextStyle(color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class OutfitScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.favorite_border, size: 60, color: Colors.grey),
-          SizedBox(height: 16),
-          Text(
-            "Saved Outfits",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.checkroom_outlined),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.checkroom),
+              ),
+              label: "Wardrobe",
             ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            "No saved outfits yet",
-            style: TextStyle(color: Colors.grey),
-          ),
-        ],
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.favorite_outline),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.favorite),
+              ),
+              label: "Lookbook",
+            ),
+          ],
+        ),
       ),
     );
   }
