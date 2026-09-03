@@ -1,10 +1,28 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+import cloudinary
+import cloudinary.uploader
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import User, UserPreference
 from ..schemas import ProfileRequest, PreferenceRequest
 
 router = APIRouter(tags=["Profile Management"])
+
+@router.post("/upload-avatar")
+async def upload_avatar(file: UploadFile = File(...)):
+    try:
+        raw_bytes = await file.read()
+        upload_result = cloudinary.uploader.upload(
+            raw_bytes,
+            folder="style_match_avatars"
+        )
+        secure_url = upload_result.get("secure_url")
+        if not secure_url:
+            raise HTTPException(status_code=500, detail="Avatar upload failed")
+        return {"success": True, "avatar_url": secure_url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/save-profile")
 def save_profile(profile: ProfileRequest, db: Session = Depends(get_db)):
@@ -15,6 +33,8 @@ def save_profile(profile: ProfileRequest, db: Session = Depends(get_db)):
     user.name = profile.name
     user.height = profile.height
     user.size = profile.size
+    user.gender = profile.gender
+    user.avatar_url = profile.avatar_url
     db.commit()
     return {"success": True, "message": "Profile saved successfully"}
 
@@ -31,7 +51,9 @@ def get_profile(email: str = Query(...), db: Session = Depends(get_db)):
         "has_profile": has_profile,
         "name": user.name or "",
         "height": user.height or "",
-        "size": user.size or ""
+        "size": user.size or "",
+        "gender": user.gender or "Female",
+        "avatar_url": user.avatar_url or ""
     }
 
 @router.post("/save-preferences")

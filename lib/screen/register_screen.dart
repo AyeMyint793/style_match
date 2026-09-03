@@ -31,6 +31,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         passwordController.text.trim(),
       );
 
+      if (!mounted) return;
+
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Registered successfully! Please login.")),
@@ -45,12 +47,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Connection error. Is backend running?")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Connection error. Is backend running?")),
+        );
+      }
     }
 
-    setState(() => isLoading = false);
+    if (mounted) setState(() => isLoading = false);
   }
 
   @override
@@ -207,10 +211,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: ElevatedButton(
                   onPressed: isLoading ? null : () => registerUser(context),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF0F766E),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                    elevation: 0,
                   ),
                   child: isLoading
                       ? CircularProgressIndicator(color: Colors.white)

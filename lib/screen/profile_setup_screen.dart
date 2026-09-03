@@ -3,9 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'preference_screen.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
-  const ProfileSetupScreen({Key? key}) : super(key: key);
+  const ProfileSetupScreen({super.key});
 
   @override
   State<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
@@ -18,6 +19,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   String? userEmail;
   String selectedSize = 'M';
+  String selectedGender = 'Female';
   bool isLoading = false;
 
   @override
@@ -27,9 +29,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   void loadEmail() async {
-    final prefs = await SharedPreferences.getInstance();
+    final email = await AuthService.getUserEmail();
+    if (!mounted) return;
     setState(() {
-      userEmail = prefs.getString("email");
+      userEmail = email;
     });
   }
 
@@ -37,6 +40,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     if (userEmail == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Email not found. Please login again")),
       );
@@ -51,13 +55,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         nameController.text.trim(),
         heightController.text.trim(),
         selectedSize,
+        gender: selectedGender,
       );
+
+      if (!mounted) return;
 
       if (success) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString("name", nameController.text.trim());
         await prefs.setString("size", selectedSize);
+        await prefs.setString("gender", selectedGender);
 
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Profile saved successfully!")),
         );
@@ -74,12 +83,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Connection error. Is backend running?")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Connection error. Is backend running?")),
+        );
+      }
     }
 
-    setState(() => isLoading = false);
+    if (mounted) setState(() => isLoading = false);
   }
 
   @override
@@ -276,7 +287,52 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       }).toList(),
                     ),
 
-                    SizedBox(height: 40),
+                    const SizedBox(height: 20),
+
+                    const Text(
+                      "Gender",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: ['Male', 'Female'].map((genderOption) {
+                        final isSelected = selectedGender == genderOption;
+                        return GestureDetector(
+                          onTap: () => setState(() => selectedGender = genderOption),
+                          child: Container(
+                            width: 145,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFF0F766E) : Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.shade200,
+                                  blurRadius: 8,
+                                )
+                              ],
+                            ),
+                            child: Center(
+                              child: Text(
+                                genderOption,
+                                style: TextStyle(
+                                  color: isSelected ? Colors.white : Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 40),
 
                     SizedBox(
                       width: double.infinity,
@@ -284,10 +340,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       child: ElevatedButton(
                         onPressed: isLoading ? null : saveProfile,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(0xFF0F766E),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
+                          elevation: 0,
                         ),
                         child: isLoading
                             ? CircularProgressIndicator(color: Colors.white)

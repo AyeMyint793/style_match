@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ApiService {
-  static const String baseUrl = "http://10.0.2.2:8000";
+  static String get baseUrl => dotenv.env['API_URL'] ?? "http://10.0.2.2:8000";
 
   static Future<bool> register(String email, String password) async {
     try {
@@ -16,7 +18,7 @@ class ApiService {
         return data["success"] == true;
       }
     } catch (e) {
-      print("Register API Error: $e");
+      debugPrint("Register API Error: $e");
     }
     return false;
   }
@@ -33,7 +35,7 @@ class ApiService {
         return data["success"] == true;
       }
     } catch (e) {
-      print("Login API Error: $e");
+      debugPrint("Login API Error: $e");
     }
     return false;
   }
@@ -50,7 +52,7 @@ class ApiService {
         return data["success"] == true;
       }
     } catch (e) {
-      print("Forgot Password API Error: $e");
+      debugPrint("Forgot Password API Error: $e");
     }
     return false;
   }
@@ -67,7 +69,7 @@ class ApiService {
         return data["success"] == true;
       }
     } catch (e) {
-      print("Reset Password API Error: $e");
+      debugPrint("Reset Password API Error: $e");
     }
     return false;
   }
@@ -83,7 +85,7 @@ class ApiService {
         return data["has_profile"] == true;
       }
     } catch (e) {
-      print("CheckProfile API Error: $e");
+      debugPrint("CheckProfile API Error: $e");
     }
     return false;
   }
@@ -99,7 +101,7 @@ class ApiService {
         if (data["success"] == true) return data;
       }
     } catch (e) {
-      print("GetProfile API Error: $e");
+      debugPrint("GetProfile API Error: $e");
     }
     return null;
   }
@@ -115,27 +117,61 @@ class ApiService {
         if (data["success"] == true) return data;
       }
     } catch (e) {
-      print("GetPreferences API Error: $e");
+      debugPrint("GetPreferences API Error: $e");
     }
     return null;
   }
 
   static Future<bool> saveProfile(
-      String email, String name, String height, String size) async {
+      String email, String name, String height, String size,
+      {String? gender, String? avatarUrl}) async {
     try {
       final response = await http.post(
         Uri.parse("$baseUrl/save-profile"),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"email": email, "name": name, "height": height, "size": size}),
+        body: jsonEncode({
+          "email": email,
+          "name": name,
+          "height": height,
+          "size": size,
+          "gender": gender ?? "Female",
+          "avatar_url": avatarUrl ?? "",
+        }),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data["success"] == true;
       }
     } catch (e) {
-      print("SaveProfile API Error: $e");
+      debugPrint("SaveProfile API Error: $e");
     }
     return false;
+  }
+
+  static Future<String?> uploadAvatar(String localPath) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse("$baseUrl/upload-avatar"),
+      );
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          localPath,
+        ),
+      );
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data["success"] == true) {
+          return data["avatar_url"]?.toString();
+        }
+      }
+    } catch (e) {
+      debugPrint("UploadAvatar API Error: $e");
+    }
+    return null;
   }
 
   static Future<bool> savePreferences(String email, String fit, String style) async {
@@ -150,13 +186,13 @@ class ApiService {
         return data["success"] == true;
       }
     } catch (e) {
-      print("SavePreferences API Error: $e");
+      debugPrint("SavePreferences API Error: $e");
     }
     return false;
   }
 
   static Future<bool> saveOutfit(String email, String occasion, String season,
-      List<int> itemIds, String description) async {
+      List<int> itemIds, String description, {List<String>? tags}) async {
     try {
       final response = await http.post(
         Uri.parse("$baseUrl/save-outfit"),
@@ -167,6 +203,7 @@ class ApiService {
           "season": season,
           "item_ids": itemIds,
           "description": description,
+          "tags": tags ?? [],
         }),
       );
       if (response.statusCode == 200) {
@@ -174,7 +211,27 @@ class ApiService {
         return data["success"] == true;
       }
     } catch (e) {
-      print("SaveOutfit API Error: $e");
+      debugPrint("SaveOutfit API Error: $e");
+    }
+    return false;
+  }
+
+  static Future<bool> updateOutfitTags(int outfitId, List<String> tags) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/update-outfit-tags"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "id": outfitId,
+          "tags": tags,
+        }),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data["success"] == true;
+      }
+    } catch (e) {
+      debugPrint("UpdateOutfitTags API Error: $e");
     }
     return false;
   }
@@ -190,7 +247,7 @@ class ApiService {
         if (data["success"] == true) return data["saved_outfits"];
       }
     } catch (e) {
-      print("GetSavedOutfits API Error: $e");
+      debugPrint("GetSavedOutfits API Error: $e");
     }
     return [];
   }
@@ -206,7 +263,7 @@ class ApiService {
         return data["success"] == true;
       }
     } catch (e) {
-      print("DeleteSavedOutfit API Error: $e");
+      debugPrint("DeleteSavedOutfit API Error: $e");
     }
     return false;
   }
@@ -224,7 +281,7 @@ class ApiService {
         if (data["success"] == true) return data["outfit"];
       }
     } catch (e) {
-      print("CompleteOutfit API Error: $e");
+      debugPrint("CompleteOutfit API Error: $e");
     }
     return null;
   }
@@ -234,34 +291,117 @@ class ApiService {
       final response = await http.get(
         Uri.parse("$baseUrl/analyze-wardrobe?email=$email"),
         headers: {"Content-Type": "application/json"},
-      );
+      ).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data["success"] == true) return data;
       }
     } catch (e) {
-      print("AnalyzeWardrobe API Error: $e");
+      debugPrint("AnalyzeWardrobe API Error: $e");
     }
     return null;
   }
 
-  static Future<List<dynamic>> getClothes(String email) async {
+  static Future<List<dynamic>?> getClothes(String email) async {
     try {
       final response = await http.get(
         Uri.parse("$baseUrl/get-clothes?email=$email"),
         headers: {"Content-Type": "application/json"},
-      );
+      ).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data["success"] == true) return data["clothes"];
       }
     } catch (e) {
-      print("GetClothes API Error: $e");
+      debugPrint("GetClothes API Error: $e");
     }
-    return [];
+    return null;
   }
 
-  static Future<bool> saveClothes(
+  static Future<Map<String, dynamic>?> processWardrobeImage(String localPath) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse("$baseUrl/process-image"),
+      );
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          localPath,
+        ),
+      );
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 45));
+      final response = await http.Response.fromStream(streamedResponse);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data["success"] == true) {
+          return data;
+        }
+      } else {
+        debugPrint("processWardrobeImage API Error: Status ${response.statusCode} - ${response.body}");
+      }
+    } catch (e) {
+      debugPrint("processWardrobeImage API Exception: $e");
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> processMultiWardrobeImage(String localPath) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse("$baseUrl/process-multi-image"),
+      );
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          localPath,
+        ),
+      );
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 120));
+      final response = await http.Response.fromStream(streamedResponse);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map<String, dynamic>) {
+          return data;
+        }
+      } else {
+        debugPrint("processMultiWardrobeImage Error: Status ${response.statusCode} - ${response.body}");
+        try {
+          final errData = jsonDecode(response.body);
+          if (errData is Map<String, dynamic>) {
+            return errData;
+          }
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint("processMultiWardrobeImage Exception: $e");
+    }
+    return null;
+  }
+
+  static Future<bool> batchSaveClothes(String email, List<Map<String, dynamic>> items) async {
+    try {
+      final payload = {
+        "email": email,
+        "items": items,
+      };
+      final response = await http.post(
+        Uri.parse("$baseUrl/batch-save-clothes"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(payload),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data["success"] == true;
+      }
+    } catch (e) {
+      debugPrint("batchSaveClothes Error: $e");
+    }
+    return false;
+  }
+
+  static Future<Map<String, dynamic>?> saveClothes(
     String email,
     String imagePath,
     String category,
@@ -282,20 +422,53 @@ class ApiService {
         "color": color,
         "stylist_note": stylistNote,
       };
-      print('saveClothes payload: $payload');
       final response = await http.post(
         Uri.parse("$baseUrl/save-clothes"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode(payload),
       );
-      print('saveClothes response status: ${response.statusCode}');
-      print('saveClothes response body: ${response.body}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data["success"] == true) {
+          return data;
+        }
+      }
+    } catch (e) {
+      debugPrint("SaveClothes API Error: $e");
+    }
+    return null;
+  }
+
+  static Future<bool> updateClothes({
+    required int id,
+    String? category,
+    String? subcategory,
+    String? occasion,
+    String? season,
+    String? color,
+    String? stylistNote,
+  }) async {
+    try {
+      final payload = {
+        "id": id,
+        if (category != null) "category": category,
+        if (subcategory != null) "subcategory": subcategory,
+        if (occasion != null) "occasion": occasion,
+        if (season != null) "season": season,
+        if (color != null) "color": color,
+        if (stylistNote != null) "stylist_note": stylistNote,
+      };
+      final response = await http.post(
+        Uri.parse("$baseUrl/update-clothes"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(payload),
+      );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data["success"] == true;
       }
     } catch (e) {
-      print("SaveClothes API Error: $e");
+      debugPrint("UpdateClothes API Error: $e");
     }
     return false;
   }
@@ -311,7 +484,7 @@ class ApiService {
         return data["success"] == true;
       }
     } catch (e) {
-      print("DeleteClothes API Error: $e");
+      debugPrint("DeleteClothes API Error: $e");
     }
     return false;
   }
@@ -321,7 +494,8 @@ class ApiService {
     String occasion,
     String season,
     String weather,
-    List<int> shownItemIds,
+    List<List<int>> previousOutfits,
+    List<int> styleItemIds,
   ) async {
     try {
       final response = await http.post(
@@ -332,12 +506,13 @@ class ApiService {
           "occasion": occasion,
           "season": season,
           "weather": weather,
-          "shown_item_ids": shownItemIds,
+          "previous_outfits": previousOutfits,
+          "style_item_ids": styleItemIds,
         }),
       );
       if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (e) {
-      print("GenerateOutfit API Error: $e");
+      debugPrint("GenerateOutfit API Error: $e");
     }
     return null;
   }
@@ -348,8 +523,10 @@ class ApiService {
     int days,
     String tripType,
     String activities,
-    String weather,
-  ) async {
+    String weather, {
+    String? startDate,
+    String? endDate,
+  }) async {
     try {
       final response = await http.post(
         Uri.parse("$baseUrl/trip-packing"),
@@ -361,11 +538,47 @@ class ApiService {
           "trip_type": tripType,
           "activities": activities,
           "weather": weather,
+          "start_date": startDate,
+          "end_date": endDate,
         }),
       );
       if (response.statusCode == 200) return jsonDecode(response.body);
     } catch (e) {
-      print("TripPacking API Error: $e");
+      debugPrint("TripPacking API Error: $e");
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> regenerateDayOutfit({
+    required String email,
+    required String destination,
+    required int dayNumber,
+    required String date,
+    required String activity,
+    required String weather,
+    required String tripType,
+    required List<int> previousOutfitItemIds,
+    required List<List<int>> otherDaysOutfits,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/regenerate-day-outfit"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": email,
+          "destination": destination,
+          "day_number": dayNumber,
+          "date": date,
+          "activity": activity,
+          "weather": weather,
+          "trip_type": tripType,
+          "previous_outfit_item_ids": previousOutfitItemIds,
+          "other_days_outfits": otherDaysOutfits,
+        }),
+      );
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (e) {
+      debugPrint("RegenerateDayOutfit API Error: $e");
     }
     return null;
   }

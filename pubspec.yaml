@@ -16,10 +16,10 @@ dependencies:
   shared_preferences: ^2.2.2
   image_picker: ^1.0.0
   flutter_dotenv: ^5.1.0
-  google_generative_ai: ^0.4.7
-  cloudinary_public: ^0.23.1
   geolocator: ^13.0.2
   geocoding: ^3.0.0
+  connectivity_plus: ^6.0.3
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   flutter_test:

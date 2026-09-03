@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home_screen.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 
 class PreferenceScreen extends StatefulWidget {
-  const PreferenceScreen({Key? key}) : super(key: key);
+  const PreferenceScreen({super.key});
 
   @override
   State<PreferenceScreen> createState() => _PreferenceScreenState();
@@ -36,13 +37,15 @@ class _PreferenceScreenState extends State<PreferenceScreen> {
   }
 
   void loadEmail() async {
-    final prefs = await SharedPreferences.getInstance();
+    final email = await AuthService.getUserEmail();
+    if (!mounted) return;
     setState(() {
-      userEmail = prefs.getString("email");
+      userEmail = email;
     });
   }
 
   Future<void> savePreferences() async {
+    if (userEmail == null) return;
     setState(() => isLoading = true);
 
     try {
@@ -52,15 +55,18 @@ class _PreferenceScreenState extends State<PreferenceScreen> {
         selectedStyle ?? "Casual",
       );
 
+      if (!mounted) return;
+
       if (success) {
-        //  Also save locally
+        // Also save locally
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString("fit_preference", selectedFit ?? "Regular");
         await prefs.setString("style_preference", selectedStyle ?? "Casual");
         await prefs.setBool("preferences_done", true);
 
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Preferences saved! ")),
+          const SnackBar(content: Text("Preferences saved!")),
         );
 
         Navigator.pushReplacement(
@@ -73,12 +79,14 @@ class _PreferenceScreenState extends State<PreferenceScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Connection error. Is backend running?")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Connection error. Is backend running?")),
+        );
+      }
     }
 
-    setState(() => isLoading = false);
+    if (mounted) setState(() => isLoading = false);
   }
 
   @override

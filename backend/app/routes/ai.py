@@ -4,7 +4,7 @@ from typing import List
 import json
 from ..database import get_db
 from ..models import User, UserPreference, ClothingItem
-from ..schemas import GenerateOutfitRequest, CompleteOutfitRequest, TripPackingRequest
+from ..schemas import GenerateOutfitRequest, CompleteOutfitRequest, TripPackingRequest, RegenerateDayOutfitRequest
 from ..services.ai_service import AIService
 from ..services.insight_service import InsightService
 
@@ -38,7 +38,8 @@ def generate_outfit(data: GenerateOutfitRequest, db: Session = Depends(get_db)):
     result = AIService.generate_outfit(
         user.height, user.size, pref_fit, pref_style,
         data.occasion, data.season, data.weather,
-        data.shown_item_ids, items_json
+        data.previous_outfits, items_json,
+        data.style_item_ids or []
     )
     return result
 
@@ -91,6 +92,30 @@ def trip_packing(data: TripPackingRequest, db: Session = Depends(get_db)):
 
     result = AIService.trip_packing(
         data.destination, data.days, data.trip_type,
-        data.activities, data.weather, items_json
+        data.activities, data.weather, items_json,
+        data.start_date, data.end_date
+    )
+    return result
+
+@router.post("/regenerate-day-outfit")
+def regenerate_day_outfit(data: RegenerateDayOutfitRequest, db: Session = Depends(get_db)):
+    items = db.query(ClothingItem).filter(ClothingItem.email == data.email).all()
+    if not items:
+        return {"success": False, "message": "Wardrobe is empty"}
+
+    items_json = json.dumps([{
+        "id": x.id,
+        "category": x.category,
+        "subcategory": x.subcategory,
+        "color": x.color,
+        "season": x.season,
+        "occasion": x.occasion,
+        "image_path": x.image_path
+    } for x in items], indent=2)
+
+    result = AIService.regenerate_day_outfit(
+        data.destination, data.day_number, data.date, data.activity,
+        data.weather, data.trip_type, data.previous_outfit_item_ids,
+        data.other_days_outfits, items_json
     )
     return result

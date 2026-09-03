@@ -13,6 +13,7 @@ class User(Base):
     style = Column(String, nullable=True)
     height = Column(String, nullable=True)
     size = Column(String, nullable=True)
+    avatar_url = Column(String, nullable=True)
 
 class UserPreference(Base):
     __tablename__ = "user_preferences"
@@ -44,3 +45,4 @@ class SavedOutfit(Base):
     season = Column(String)
     description = Column(String)
     items = Column(JSON)  # Stores detailed serialized items list
+    tags = Column(JSON, nullable=True)

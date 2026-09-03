@@ -7,6 +7,35 @@ from app.routes import auth, profile, wardrobe, ai
 # Ensure all database tables are created (using existing users.db)
 Base.metadata.create_all(bind=engine)
 
+# Add tags and avatar_url columns if they do not exist
+try:
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        # Check saved_outfits table
+        result = conn.execute(text("PRAGMA table_info(saved_outfits)"))
+        columns = [row[1] for row in result.fetchall()]
+        if "tags" not in columns:
+            conn.execute(text("ALTER TABLE saved_outfits ADD COLUMN tags TEXT"))
+            conn.commit()
+            print("Successfully added 'tags' column to 'saved_outfits' table.")
+        # Check users table
+        result_users = conn.execute(text("PRAGMA table_info(users)"))
+        columns_users = [row[1] for row in result_users.fetchall()]
+        if "avatar_url" not in columns_users:
+            conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url TEXT"))
+            conn.commit()
+            print("Successfully added 'avatar_url' column to 'users' table.")
+
+        # Check clothing_items table
+        result_clothing = conn.execute(text("PRAGMA table_info(clothing_items)"))
+        columns_clothing = [row[1] for row in result_clothing.fetchall()]
+        if "stylist_note" not in columns_clothing:
+            conn.execute(text("ALTER TABLE clothing_items ADD COLUMN stylist_note TEXT"))
+            conn.commit()
+            print("Successfully added 'stylist_note' column to 'clothing_items' table.")
+except Exception as e:
+    print(f"Error altering database tables in main.py: {e}")
+
 app = FastAPI(
     title="Style Match - Modular API",
     description="Refactored backend for the Style Match fashion application.",
